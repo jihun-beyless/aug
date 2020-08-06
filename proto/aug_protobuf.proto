@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package aug_protobuf;
+
+service TransactionAugment {
+
+    rpc SendAugmentData (AugType) returns (BoolType) {}
+}
+
+message AugType {
+  int32 device_id = 1;
+  int32 grid_x = 2;
+  int32 grid_y = 3;
+  int32 grid_id = 4;
+  string object_category = 5;
+  int32 background_id = 6;
+  int32 iteration = 7;
+  int32 batch_num1 = 8;
+  int32 batch_num2 = 9;
+  int32 batch_num3 = 10;
+  string bright_param = 11; 
+}
+
+message BoolType {
+  bool result =1; 
+}
