@@ -4,3 +4,6 @@
 /error_bbox.txt
 /error_case_1.zip
 /error_obj.txt
+/.idea
+/__pycache__
+/img
