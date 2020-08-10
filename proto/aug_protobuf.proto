@@ -18,7 +18,6 @@ message AugType {
   int32 batch_num1 = 8;
   int32 batch_num2 = 9;
   int32 batch_num3 = 10;
-  string bright_param = 11; 
 }
 
 message BoolType {

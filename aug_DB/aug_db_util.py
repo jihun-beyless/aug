@@ -26,6 +26,17 @@ def createFolder(directory):
 
 
 def arrange_masks(DB_masks, grid, obj_iter):
+    """
+    mask 정보를 합성코드내에서 사용하기 쉽도록 재배열
+
+    Args:
+        DB_masks (tuple) : mask 데이터들
+        grid (tuple): grid 가로,세로 정보 
+        obj_iter (list): 특정 category id에 해당되는 iteration 정보
+
+    return:
+        list : 다차원배열로 정리 
+    """
     #grid : 10
     #category :15, 16, 17
     #np_masks = np.array(masks)
@@ -50,6 +61,17 @@ def update_value(src, th, rect, max_value):
 
 
 def edit_img_value(img, bright_param):
+    """
+    white blance 맞추기 위한 함수
+
+    Args:
+        img (numpy): image 
+        bright_param : 특정 위치값 및 BGR 값 등으로 white blance 맞출때 사용됨
+
+    return:
+        numpy : 밝기 조절된 image 
+    """
+    # bright_param : [bright_flag, mode_flag, flag1, flag2, flag3, th1, th2, th3, rect x, rect y, rect w, rect h] 
     ch_flag = bright_param[2:5]
     th_param = bright_param[5:8]
     rect = bright_param[8:12]
@@ -77,12 +99,27 @@ def edit_img_value(img, bright_param):
     return re_img
 
 def tmp_image_save(DB_imgs, obj_id, g, g_id, obj_iter, pre_flag):    
-    '''
+    """
     DB에서 받은 이미지를 tmp에 저장
-    입력받은 category_id별로 이미지를 생성하며, 
-    '''
-    #폴더 생성
+    입력받은 category_id별로 이미지를 생성
+
+    Args:
+        DB_imgs (tuple): DB에서 가져온 image들
+        obj_id (int): DB에서 가져온 image의 obj_id
+        g (tuple): grid 가로,세로 정보 
+        g_id (int) : grid_id정보
+        obj_iter (list): 특정 category id에 해당되는 iteration 정보
+        pre_flag (bool): white blance 적용 여부 확인
+
+    return:
+        bool : True or False
+    """
+    print('임시로 tmp에 이미지 저장')
+    
+    # white balance 맞추는 용도로 쓰는 값, 나중에 카메라 바뀌면 삭제
     bright_param = (pre_flag, 1, 1, 1, 1, 78, 36, 113, 1140, 440, 100, 200)
+    
+    #폴더 생성
     folder_name = str('/tmp/augment_DB/{}/').format(obj_id)
     createFolder(folder_name)
     file_info = [[x,y,iter_num, str('{}x{}_{}.png').format(x, y, iter_num), False] for x in range(1,g[0]+1) for y in range(1,g[1]+1) for iter_num in range(1,obj_iter+1)]
