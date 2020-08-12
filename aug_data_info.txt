@@ -1,1 +1,0 @@
-device_id :20001, grid: (6,5), grid_id: 2, obj_category: 1 2 4 5 6, background_id: 1, iteration: 3, batch_num : (2,2,2)

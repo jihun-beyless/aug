@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from functools import wraps
 
-sys.path.insert(0,'./aug_DB/DCD_DB_API/') 
+sys.path.insert(0,'./DCD_DB_API/') 
 from db_api import DB
 from . import aug_db_util
 
@@ -170,10 +170,12 @@ class aug_db:
             background_id (int) : 배경 이미지에 해당되는 id값
 
         return:
-            bool : True or False
+            masks (list) : DB에서 읽어온 mask정보 6차원 배열 [category 순서][position x][position y][iteration][[x1,y1], [x2, y2], ... ]
+            bg (numpy) : background image
+            read_flag (bool): DB에서 데이터 읽는게 제대로 됐는지 확인 True or False
         """
-
-        get_flag = True
+        
+        read_flag = True
         aug_db_util.createFolder('/tmp/augment_DB')
 
         #read background
@@ -189,34 +191,36 @@ class aug_db:
             # read images
             DB_images, db_img_flag = read_image(self.db, grid_id, cate_id)
             if db_img_flag==False:
+                read_flag = False
                 break
             
             # image saving in tmp folder 
             img_save_flag = aug_db_util.tmp_image_save(DB_images, cate_id, grid, grid_id, obj_iter, self.p_flag)
             if not img_save_flag:   
-                get_flag = False
+                read_flag = False
                 break
             
             #read masks
             DB_masks, db_mask_flag= read_mask(self.db, grid_id, cate_id)
             if db_mask_flag==False:
+                read_flag = False
                 break
 
             masks_list = aug_db_util.arrange_masks(DB_masks, grid,  obj_iter)
             masks.append(masks_list)
 
-        return masks, bg, get_flag
+        return masks, bg, read_flag
 
     def set_aug_result(self, aug_segs, grid, grid_id, device_id, images_path):
         """
         합성된 데이터를 저장하는 함수
         
         Args:
-            aug_segs (list): 이미지별 합성정보가 list로 저장되어 있음
+            aug_segs (list): 이미지별 합성정보가 list로 저장되어 있음, [image num]['area', 'bbox', 'mask', 'category_id', 'iteration', 'x', 'y']
             grid (tuple): 가로 세로 그리드 비율로 튜플값 (w)(h) 
             grid_id (int): 그리드 id
-             device_id (int): 촬영된 기기 id
-            images_path (str): 현재 합성된 이미지가 저장된 파일경로
+            device_id (int): 촬영된 기기 id
+            images_path (list): 현재 합성된 이미지가 저장된 파일경로들을 list로 저장 [image num][str]
         return:
             bool : True or False
         """
@@ -259,7 +263,7 @@ class aug_db:
         save_datas.append(obj_data_list)
 
         # obj data 저장
-        result_flag = save_aug_image(self.db, save_datas)
+        result_flag = save_aug_object(self.db, save_datas)
         flag = flag & result_flag
         end_obj_id = self.db.get_last_id('Object')+1 
 

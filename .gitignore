@@ -1,9 +1,5 @@
 /.vscode
-/DCD_DB_API-master.zip
-/error.txt
-/error_bbox.txt
-/error_case_1.zip
-/error_obj.txt
+/error*
 /.idea
 /__pycache__
 /img

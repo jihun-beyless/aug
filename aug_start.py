@@ -16,7 +16,7 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
         device_id (int): 촬영된 기기 id
         grid (tuple) : 가로 세로 그리드 비율로 튜플값 (w)(h) 
         grid_id (int): 그리드 id
-        object_category (tulple) : 물품의 category 값 ex) (12, 34, 23)
+        object_category (list) : 물품의 category 값 ex) [12, 34, 23]
         background_id (int) : 배경 이미지에 해당되는 id값
         iteration (int) : 여기서 iteration은 촬영 횟수를 말하고, 물품 전부 동일하면 int 값만 받아도 무방
                                     아니면 위의 object_category처럼 list로 받음
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     device_id = 20001
     grid = (6,5)
     grid_id = 2
-    obj_cate=(1, 2, 4, 5, 6)
+    obj_cate=[1, 2, 4, 5, 6]
     bg_id = 1
     iteration = 3
     batch_num = (3, 3, 3)

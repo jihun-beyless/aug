@@ -122,7 +122,7 @@ def tmp_image_save(DB_imgs, obj_id, g, g_id, obj_iter, pre_flag):
     #폴더 생성
     folder_name = str('/tmp/augment_DB/{}/').format(obj_id)
     createFolder(folder_name)
-    file_info = [[x,y,iter_num, str('{}x{}_{}.png').format(x, y, iter_num), False] for x in range(1,g[0]+1) for y in range(1,g[1]+1) for iter_num in range(1,obj_iter+1)]
+    file_info = [[x,y,iter_num, str('{}x{}_{}.jpg').format(x, y, iter_num), False] for x in range(1,g[0]+1) for y in range(1,g[1]+1) for iter_num in range(1,obj_iter+1)]
     for f in file_info:
         for img in DB_imgs:
             if img[0:3]==tuple(f[0:3]):

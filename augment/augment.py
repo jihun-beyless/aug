@@ -16,25 +16,29 @@ class augment:
 
         Args:
             grid (tuple): 가로 세로 그리드 비율로 튜플값 (w)(h) 
-            object_category (tulple): 물품의 category 값 ex) (12, 34, 23)
+            object_category [list]: 물품의 category 값 ex) [12, 34, 23]
             batch_method (int): 배치방식, 3가지로 나뉘며 1,2,3 으로 구분
             backgroun_image (numpy): 배경 이미지
-            mask (list): 마스크 정보
+            mask (list): 마스크 정보, 6차원 배열
             iteration_list (list): iteration 정보가 저장된 배열
             shadow_flag (bool): 그림자 적용 여부
             center (tuple): 내부 판에서 정중앙 위치 따로 입력시 사용(이미지 중앙과 판에서의 중앙이 다를때 사용됨)
-            category_grid(list): 현재는 내부코드 테스트 할때만 사용 
+            category_grid(list): 물품이 특정 포지션 내에서만 들어가서 따로 구분이 필요할때 사용, 현재 사용안함
         """
         # 그리드 정보로 x,y 값, tuple
         self.grid = grid
+
         # 현재 사용할 category 정보, list, tuple 둘 중 뭐든 상관없을듯
         #ex)[3 , 7, 4, 5, 13....]
         self.object_category = object_category
+
         #카테고리 종류 최대치
         self.category_num = len(object_category)
-        # mask 정보가 입력 받는 형태로 바뀜
+
+        # 입력받는 mask 정보
         self.mask_data = mask
-        # iteration 정보도 입력, 각 물품별로 최대 몇장씩 찍었는지 확인 용도
+
+        # iteration 정보도 입력, 각 물품별로 최대 몇장씩 찍었는지 
         self.iteration = iteration_list
         
         # category에 맞는 grid 맵 정보로 3d list
@@ -43,58 +47,62 @@ class augment:
             self.category_grid = list([[[1 for row in range(grid[1])] for col in range(grid[0])]for cate in range(len(object_category))])
         else:
             self.category_grid = category_grid
-        # batch_method는 1,2,3  3가지
-        # 1. 열별 배치, 그리고 같은 열은 단일 물품
-        # 2. 열별로 배치, 대신 물품 종류는 랜덤
-        # 3. 랜덤 배치
-        # 중심점 위치 입력, tuple
-        #이미지의 중심이 아닌 실제 매대의 중심좌표를 입력해야함
+
+        # 실제 매대의 중심좌표(calibration안할경우 따로 입력)
         if center==None:
             self.center = (int(background_image.shape[1]/2), int(background_image.shape[0]/2))
         else:
             self.center = center
+
+        # batch_method는 1,2,3  3가지
+        # 1. 열별 배치, 그리고 같은 열은 단일 물품
+        # 2. 열별로 배치, 대신 물품 종류는 랜덤
+        # 3. 랜덤 배치
         self.batch_method = batch_method
+
         # 배경 이미지
-        # opencv에서 이미지 읽어올때 쓰는 형태면 상관없긴 한데 그게 아니면 아래와같이  수정이 필요할지도
-        # np(가로,세로,3, dtype = uint8)
         self.ori_background_image = background_image
+
         # 그림자 옵션 추가 여부
         self.shadow_flag = shadow_flag
         # threshold 기준
         # param1,2 로 나뉘어 지고 물품의 가로길이를 기준으로 세로로 얼마만큼 잘라낼지 판단
-        # 1은 무조건 잘라내는 기준이고, 수직보다는 대각선을 더 많이 잘라낸다고 보면됨
-        # 그래서 대각선은 th1기준으로 1.0, 수직은 1.3
-        # th2에서는 대각선 0.7, 수직은 0.9
         self.threshold_param1=(1.0, 0.3)
         self.threshold_param2=(0.7, 0.2)
+
         #물품이 배치될때 전체에서 얼마만큼 비율로 배치될지 정하는 파라미터
         self.object_dense = 0.5
+
         # rand option같은 경우 0과 1이 차이가 있는데
         #0은 배치할때 확률이 dense가 0.3이면 무조건 30%는 배치가 되어야함. 즉 49칸이면 15칸만 딱 물품이 배치
         #반대로 1은 각각의 위치별로 물품이 존재 할 확률이 30%, 실제 배치되는 갯수는 이미지마다 다르며, Normal 분포를 가짐
         self.rand_option = 1
+
         # array_method 1이면 음료수 물품과 같이 중앙이 가장 크고 가로 갈수록 가려지는 형태
-        # array_method 2이면 트레이 설치된 경우로 뒷쪽 물품이 점점 가려지는 형태
-        # 다만 array_method 2는 코드를 짜다가 말아서, 현재는 안된다고 봐야함
+        # array_method 2이면 트레이 설치된 경우로 뒷쪽 물품이 점점 가려지는 형태, 다만 현재 사용불가
         self.array_method = 1
+
         # 이미지 가로,세로길이를 background 이미지크기에서 받아오도록 설정함
         self.img_w = background_image.shape[1]
         self.img_h = background_image.shape[0]
+        
         # 타원관련 파라미터
         # 물품의 가로, 세로 길이를 기반으로 위에 shadow_value를 포함해서 실제 타원의 크기에 영향을 줌 
         self.ellipse_param = (0.4, 0.5)
+        
         # 그림자를 타원형태로 단순하게 만드는데 사용하는 방식이 픽셀값이 1차이인 타원을 수십개를 이미지에 붙여서 만드는 형태로 사용함
         # 여기서 사용되는 타원갯수와 가장 진한 타원의 픽셀값이 shadow_value가 됨
         self.shadow_value = 30
-        # 물품끼리 서로 겹치게 될 경우 물품이 거의 안보이게 되는데 그러면 삭제가 필요함
-        # 삭제하는 기준을 원래 물품의 mask 영역 크기와 나중에 가려져서 거의다 가려질 경우 남은 영역크기 비율로 제거하려고 함
-        # 즉 여기서 가려진게 94% 이상 가려지면 검출 불가능이라고 판단해서 지우는 형태로 구현
+        
+        # 물품끼리 서로 겹치게 될 경우 삭제하며, 원래 물품의 mask 영역 크기와 나중에 가려져서 남은 영역크기 비율로 제거
+        # 0.06일 경우 가려진게 94% 이상 가려지면 검출 불가능이라고 판단해서 지움
         self.delete_ratio_th = 0.06
-        # 물품끼리 겹치는 경우 bbox를 재 계산할때 필요한 파라미터로 가려지는 쪽보다 가리는 쪽에 가중치를 더 많이 둬야
-        # 위쪽의 뚜껑부분이 덜 문제가 발생됨
-        # 계산시 영역내부의 픽셀합으로 계산하는데 가리는쪽이 -값이여야 됨
-        # -3~-4정도로 설정하면 무난할듯
+
+        # 물품끼리 겹치는 경우 bbox를 재 계산할때 필요한 파라미터
+        # 가리는쪽 가중치를 -, 가려지는 쪽을 +로 해서 bbox 내부의 영역합이 최대인 값으로 계산
+        # 가리는쪽 가중치를 -3~-4정도로 설정하면 무난할듯
         self.around_object_weight = -3
+
         # 마지막에 bbox 다시 보정용으로 재계산할때 필요
         # 실제 물품의 사이즈 줄여가면서 적합한 bbox를 다시 계산하는데 얼만큼 줄일지 판단하는 값
         self.re_cal_search_region = 0.5
@@ -110,36 +118,29 @@ class augment:
         3. 전체적으로 완전히 랜덤
         
         """
-        #batch_map = [[0 for row in range(self.grid[1])] for col in range(self.grid[0])]
         batch_map = []
         if self.batch_method<3:
             if self.rand_option: 
-                #option 1일때로 말그대로 각 위치별로 확률이 별도로 계산 
-                #저기서 round를 하면 기본적으로 50%가 되므로 0.5-dense를 빼면 원하는 확률로 설정
-                #map_possible = [round(random.random()-(0.5-self.object_dense)) for col in range(self.grid[0])]
+                #option 1일때는 normal distribution으로 
                 map_possible = aug_cal.make_gridmap(self.object_dense, self.grid[0])
             else: 
                 #optino 0일때로 전체 리스트에서 원하는 %만
                 p = int(self.grid[0]*self.object_dense+0.5)
                 map_possible = [0 for i in range(self.grid[0]-p)]+[1 for i in range(p)]
                 random.shuffle(map_possible)
+            
             # 둘다 방식은 조금 다르지만 열 단위로 봤을때 1은 들어가는 경우, 0은 들어가지 않는 경우
-            #print("물품이 들어갈 위치만 결정")
-            #print(map_possible)
             if self.batch_method==1:
                 #여기는 같은 열은 같은 물체로만 배치
                 for col in range(self.grid[0]):
                     if map_possible[col]==0: 
                         batch_map.append([0 for i in range(self.grid[1])])
                         continue
-                    #우선 현재 열에서 각 물체들의 배치 가능 여부를 알아야함
                     col_poss=[]
                     for obj_cate in range(self.category_num):
                         map_sum=sum(self.category_grid[obj_cate][col])
                         if map_sum==self.grid[1]: col_poss.append(1)
                         else: col_poss.append(0)
-                    # 즉 col_poss에서는 각 열별로 가능여부가 나타나기 때문에 저기서 1만 해당되는 것들을 따로 뽑아서 
-                    # 뽑아내면 됨, 여기서는 중복도 상관없으니 random.choice 사용
                     poss_cate = [self.object_category[i] for i in range(len(col_poss)) if col_poss[i]]
                     select_cate = random.choice(poss_cate)
                     batch_map.append([select_cate for i in range(self.grid[1])])
@@ -158,8 +159,7 @@ class augment:
                         batch_map[col][row]=select_cate
            
         else:
-            ##방식3
-            # 3에서는 물품 배치 가능도 2차원 map으로 만듬
+            ##방식3 2차원 map으로 만듬
             if self.rand_option: 
                  #map_possible = [[round(random.random()-(0.5-self.object_dense)) for row in range(self.grid[1])]for col in range(self.grid[0])]
                 map_possible = aug_cal.make_gridmap(self.object_dense, self.grid)
@@ -173,15 +173,12 @@ class augment:
                 for col in range(self.grid[0]):
                     map_possible.append(map_possible_line[(col*self.grid[1]):((col+1)*self.grid[1])])
             # 이제 물체 배치
-            #print("물품이 들어갈 위치만 결정")
-            #print(map_possible)
             batch_map = [[0 for row in range(self.grid[1])] for col in range(self.grid[0])]
             for col in range(self.grid[0]):
                 for row in range(self.grid[1]):
                     if map_possible[col][row]==0: 
                         continue
                     #행렬 각 위치에서 확률을 계산
-                    #col_poss=[]
                     col_poss = [self.category_grid[i][col][row] for i in range(self.category_num)]
                     poss_cate = [self.object_category[i] for i in range(len(col_poss)) if col_poss[i]]
                     select_cate = random.choice(poss_cate)
@@ -190,7 +187,6 @@ class augment:
 
         self.batch_map = batch_map
         print(batch_map)
-        #return batch_map
       
     def load_DB(self, batch_map=None):
         """
@@ -199,7 +195,7 @@ class augment:
         각각의 파라미터는 다음과 같음
         ['mask_value'] = mask map만들때 사용되며 랜덤한 값이 각각 할당 됨, 
         category 와 다른 값을 사용하는 이유는 같은 물품이라도 별도로 구별하기 위해서 따로 랜덤한 값을 넣음
-        ['grid_x'], ['grid_y'] : 각 물품별 그리드 위치
+        ['pos_x'], ['pos_y'] : 각 물품별 포지션 위치
         ['category'] : 말그대로 카테고리 넘버, 
         ['bbox'] : bbox 정보, x, y , w ,h 순서로 list로 저장
         ['mask'] : 마스크 정보 - [[x1, y1], [x2, y2], [x3, y3], ... , [xn, yn]] 식으로 구성
@@ -217,14 +213,12 @@ class augment:
         mask_value = list(range(1, self.batch_num*(255//self.batch_num)+1,(255//self.batch_num)))
         random.shuffle(mask_value)
         
-        #for col in range(self.grid[0]):
-        #   for row in range(self.grid[1]):
         for b, v in zip(batch, mask_value):
             # batch에서 카테고리 정보 가져옴
             cate_id = self.batch_map[b[0]][b[1]]
             
             #그리드 정보는 재배열된 batch정보에서 바로 얻어내서 저장
-            data_info = {'grid_x':b[0],'grid_y':b[1]}
+            data_info = {'pos_x':b[0],'pos_y':b[1]}
             # mask_value는 그냥 랜덤한 값이므로 바로 같이 저장
             data_info['mask_value'] = v
             # 카테고리 정보 저장
@@ -243,7 +237,7 @@ class augment:
             #print(area)
             
             #이미지를 opencv로 읽어오기
-            image_name = str('{}x{}_{}.png').format(b[0]+1, b[1]+1, iter_value+1)
+            image_name = str('{}x{}_{}.jpg').format(b[0]+1, b[1]+1, iter_value+1)
             image_path = '/tmp/augment_DB/'+str(cate_id)+'/'+image_name
             img = cv2.imread(image_path)
             #이미지 저장
@@ -272,7 +266,6 @@ class augment:
                 #물품이 위에서 촬영된 걸 보면 원근감으로 인해 구석에 있는건 회전된 것 처럼 보임
                 #즉 물품이 회전되었다고 가정하고 그에 맞는 타원을 계산
 
-                
                 mask_np = np.array(img_info['mask'])
                 
                 obj_center = aug_cal.cal_obj_center(mask_np)
@@ -281,8 +274,6 @@ class augment:
                 angle = -math.atan2((obj_center[0]-self.center[0]), (obj_center[1]-self.center[1]))
                 # 기존의 회전된 물체를 수직형태로 회전변환을 진행하기 위해서 각도 정보를 가진 메트릭스를 따로 정의
                 rotate_m = np.array([[math.cos(angle), -math.sin(angle)],[math.sin(angle), math.cos(angle)]])
-                
-                #물체 중심을 기반으로 회전해야하므로 
                 mask_np_diff = mask_np - np.array(obj_center)
 
                 # 각도 메트릭스와 현재 mask 점들을 메트릭스 곱으로 한번에 연산을 통해 회전변환 계산
@@ -294,27 +285,21 @@ class augment:
                 length_h = np.max(rotate_mask_np, axis=0)[1]-np.min(rotate_mask_np, axis=0)[1]            
                 
                 #물품의 타원
-                #shadow_value 라는게 그림자 최대 픽셀값
                 #크기가 다른 shadow_value개의 타원을을 순차적으로 겹쳐서 부드럽게 그림자를 만듬
                 for j in range(self.shadow_value):
                     w_d = (self.shadow_value-j+1)*0.2/(self.shadow_value+1)
                     cv2.ellipse(shadow, tuple(obj_center), (int(length_w * self.ellipse_param[0] + length_h * w_d), int(length_h * self.ellipse_param[1])), \
                                 (angle * 180 / math.pi), 0, 360,(j, j, j), -1)
-                
                 shadow_background_img = shadow_background_img + shadow 
                 
                 
             #배경에 각각의 타원 정보가 입력되었으니 이걸 최종적으로 기존 background랑 합침
             bg_sum = self.ori_background_image.astype(np.int16) - shadow_background_img.astype(np.int16)
-            #uint8은 값의 범위가 0~255로 음수값을 제외하기 위해서 코드 몇줄 추가됨
             bg = np.where(bg_sum < 0, 0, bg_sum)
             bg = bg.astype(np.uint8)
             
-            #cv2.imshow('bg',bg)
-            #cv2.waitKey(0)
             self.background_image = bg
-            #print('배경에 그림자 적용 완료')
-            #return bg
+
 
     def make_maskmap(self):
         """
@@ -341,7 +326,7 @@ class augment:
         #입력으로 받은 배경이미지에다가 붙이기 위해서 배경을 가져옴
         aug_img = self.background_image
         for img_info in self.image_data:
-            # 연산을 효율적으로 이용하기 위해 mask 점의 x,y 최대 최소를 구함
+            # mask 점의 x,y 최대 최소를 구함
             mask_np = np.array(img_info['mask'])
             x_max = np.max(mask_np, axis=0)[0]
             x_min = np.min(mask_np, axis=0)[0]
@@ -349,18 +334,14 @@ class augment:
             y_min = np.min(mask_np, axis=0)[1]
 
             
-            # 실제 이미지에서 물품 영역부분을 잘라냄
+            # 물품 영역부분을 잘라내서 붙이는 부분
             obj_s = img_info['image'][y_min:y_max,x_min:x_max]
-            # mask map에서 물품 영역부분을 잘라냄
             obj_maskmap = self.maskmap[y_min:y_max,x_min:x_max]
-            # 배경도 마찬가지로 잘라옴
             aug_obj = aug_img[y_min:y_max,x_min:x_max]
-            # 붙이는 작업
             aug_img[y_min:y_max,x_min:x_max] = np.where(obj_maskmap==img_info['mask_value'], obj_s, aug_obj)
         
         
         self.aug_img = aug_img
-        #return aug_img
     
 
     def post_processing(self):
@@ -375,7 +356,7 @@ class augment:
         """
         cal_seg = []
         aug_seg_img = self.aug_img.copy()
-        aug_seg_img2 = self.aug_img.copy()
+        #aug_seg_img = self.aug_img.copy()
         deleted_info = []
         
         for img_info in self.image_data:
@@ -386,13 +367,10 @@ class augment:
             threshold = [self.threshold_param1, self.threshold_param2]
             
             obj_map = deleted_map.astype(np.uint8)
-            #print(img_info['area'])
-            # mask 다시 계산
+            # mask 계산
             obj_cal_mask, area = aug_cal.cal_mask(obj_map,img_info['area'], self.delete_ratio_th)
             if obj_cal_mask[0][0]==-1:
-                #print('삭제됨')
-                #print('삭제된 위치:{}, {}'.format(img_info['grid_x'],img_info['grid_y']))
-                self.batch_map[img_info['grid_x']][img_info['grid_y']]=0
+                self.batch_map[img_info['pos_x']][img_info['pos_y']]=0
                 deleted_info.append(img_info)
                 continue
             
@@ -400,25 +378,18 @@ class augment:
             obj_cal_bbox = aug_cal.cal_bbox(obj_map, obj_cal_mask, img_center, threshold)
             
             cal_seg.append({'mask': obj_cal_mask, 'bbox' : obj_cal_bbox})
-            #cv2.drawContours(aug_seg_img, re_mask,-1, (255, 255, 255), 1)
-            #for p in range(re_mask.shape[0]-1):
-            #    cv2.line(aug_seg_img,tuple(re_mask[p]),tuple(re_mask[p+1]),(0,255,255),1)
-            #cv2.rectangle(aug_seg_img, tuple(obj_cal_bbox), (255, 255, 0), 1)
-            #cv2.putText(aug_seg_img, str(a_r), (re_bbox[0],re_bbox[1]-10), cv2.FONT_HERSHEY_COMPLEX, 0.7, (100,100,255), 1)
 
         #없어진 물품 리스트에서 지우기
         for del_info in deleted_info:
             self.image_data.remove(del_info)
         
-        #bbox 다시 조절하는 함수 추가
+        #bbox 다시 계산
         re_seg = aug_cal.revise_bbox(cal_seg, self.batch_map, self.grid, self.image_data, self.around_object_weight, self.re_cal_search_region)
         self.re_segmentation = re_seg
-        for seg2 in re_seg:
-            cv2.rectangle(aug_seg_img2, tuple(seg2['bbox']), (0, 255, 255), 1)
+        #for seg2 in re_seg:
+        #    cv2.rectangle(aug_seg_img, tuple(seg2['bbox']), (0, 255, 255), 1)
         #cv2.imshow('aug_img',aug_seg_img)
-        #cv2.imshow('aug_img2',aug_seg_img2)
         #cv2.waitKey(0)
-        #return re_seg
     
     def arrange_aug_data(self, aug_count):
         """
@@ -438,11 +409,8 @@ class augment:
         except OSError as e:
             print("Failed to create director!!"+img_save_folder)
 
-        img_save_path = img_save_folder+'/'+'%06d.png'%(aug_count)
+        img_save_path = img_save_folder+'/'+'%06d.jpg'%(aug_count)
         cv2.imwrite(img_save_path, self.aug_img)
-        #img_bytes = img.tobytes()
-        #aug_DB = {'bbox':bbox, 'image':img_bytes}
-        #aug_DB = {'seg':self.re_segmentation, 'image':self.aug_img}
         aug_DB = self.re_segmentation
         
         return img_save_path, aug_DB
@@ -460,16 +428,16 @@ def aug_process(grid, object_category, batch_method, background, DB_masks,iterat
 
     args: 
         grid (tuple): 가로 세로 그리드 비율로 튜플값 (w)(h) 
-        object_category (tulple): 물품의 category 값 ex) (12, 34, 23)
+        object_category (list): 물품의 category 값 ex) [12, 34, 23]
         batch_method (int): 배치방식, 3가지로 나뉘며 1,2,3 으로 구분
         background (numpy): 배경 이미지
-        DB_masks (list): 마스크 정보
+        DB_masks (list): DB에서 읽어온 mask정보 6차원 배열 [category 순서][position x][position y][iteration][[x1,y1], [x2, y2], ... ]
         iteration_list (list): iteration 정보가 저장된 배열
         aug_count (int): 현재 합성되는 이미지가 몇번째 이미지인지 확인용도
 
     Return:
         str : 저장된 이미지 path정보
-        dictionary : 합성 결과 데이터
+        dictionary : 합성 결과 데이터, ['mask'], ['bbox'], ['category_id'], ['area'], ['x'], ['y'], ['iteration']
     """
 
     #print("합성할 물품 배치를 계산하는 부분 시작")
