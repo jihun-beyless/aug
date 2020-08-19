@@ -105,7 +105,7 @@ class augment:
 
         # 마지막에 bbox 다시 보정용으로 재계산할때 필요
         # 실제 물품의 사이즈 줄여가면서 적합한 bbox를 다시 계산하는데 얼만큼 줄일지 판단하는 값
-        self.re_cal_search_region = 0.5
+        self.re_cal_search_region = 0.7
         
     def compose_batch(self):
         """
@@ -186,7 +186,7 @@ class augment:
         #print("물품 배치 완료")
 
         self.batch_map = batch_map
-        print(batch_map)
+        #print(batch_map)
       
     def load_DB(self, batch_map=None):
         """
@@ -205,6 +205,10 @@ class augment:
         
         if batch_map!=None:
             self.batch_map = batch_map
+        
+
+        #self.batch_map[3]=[1,1,1,1,1,1]
+        print(self.batch_map)
         image_data = []
         # 여기서 물품 합성시 중앙에서 가장 먼 순서대로 배치 할 수 있도록 조정
         batch = aug_cal.array_DB_batch(self.grid, self.batch_map, self.array_method)
@@ -366,14 +370,21 @@ class augment:
             img_center = (self.center[0], self.center[1])
             threshold = [self.threshold_param1, self.threshold_param2]
             
+            
+            if(img_info['pos_x']==3) & (img_info['pos_y']==5) & (img_info['category']==1):
+                check=True 
+
             obj_map = deleted_map.astype(np.uint8)
+            
             # mask 계산
             obj_cal_mask, area = aug_cal.cal_mask(obj_map,img_info['area'], self.delete_ratio_th)
             if obj_cal_mask[0][0]==-1:
                 self.batch_map[img_info['pos_x']][img_info['pos_y']]=0
                 deleted_info.append(img_info)
                 continue
-            
+                
+            #print('물체의 위치정보: ({},{})'.format(img_info['pos_x'], img_info['pos_y']))
+
             # bbox계산
             obj_cal_bbox = aug_cal.cal_bbox(obj_map, obj_cal_mask, img_center, threshold)
             
@@ -411,7 +422,16 @@ class augment:
 
         img_save_path = img_save_folder+'/'+'%06d.jpg'%(aug_count)
         cv2.imwrite(img_save_path, self.aug_img)
+
         aug_DB = self.re_segmentation
+
+        #이부분은 혹시 bbox까지 포함된 결과 이미지를 저장하기 위한 용도
+        img_save_folder2 = '/tmp/augment_DB/aug_result'
+        img_save_path2 = img_save_folder2+'/'+'%06d.jpg'%(aug_count)
+        re_img = self.aug_img.copy()
+        for seg in self.re_segmentation:
+            cv2.rectangle(re_img, tuple(seg['bbox']),(0, 255, 255), 1)
+        cv2.imwrite(img_save_path2, re_img)
         
         return img_save_path, aug_DB
         
@@ -445,6 +465,9 @@ def aug_process(grid, object_category, batch_method, background, DB_masks,iterat
     aug1.compose_batch() 
     #aug1.load_DB_API()
     #print("데이터 읽기 시작")
+    #batch = [[2, 1, 3, 2, 1, 3], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [3, 2, 1, 3, 2, 2], [1, 2, 3, 2, 3, 2], [0, 0, 0, 0, 0, 0], [1, 2, 2, 3, 2, 1]]
+    #aug1.load_DB(batch_map=batch)
+    
     aug1.load_DB()
     #print("데이터 읽기 완료")
     aug1.make_background()

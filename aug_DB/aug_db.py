@@ -178,6 +178,7 @@ class aug_db:
         read_flag = True
         aug_db_util.createFolder('/tmp/augment_DB')
 
+        #self.db.db_to_json_type('./json/data.json','./json/img/',3)
         #read background
         bg, bg_flag =read_background_image(self.db, background_id)
         if bg_flag==False:

@@ -48,7 +48,7 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
     result_data = []
     #save_count = 1
     aug_count = 1
-    cut_value = 3
+    cut_value = 1000
     img_path_list = []
     batch_method_list = [1 for i in range(batch_num[0])]
     batch_method_list.extend([2 for i in range(batch_num[1])])
@@ -86,13 +86,19 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
 if __name__ == "__main__":
     # 이건 tool에서 입력으로 받아와야 하는 변수들
     # 20001, 2, 3, 1, [1, 2], 3, 29
+
     device_id = 20001
-    grid = (6,5)
-    grid_id = 2
-    obj_cate=[1, 2, 4, 5, 6]
-    bg_id = 1
+
+    grid = (7, 6)
+
+    grid_id = 3
+
+    obj_cate = [1, 2, 3]
+
+    bg_id = 463
+
     iteration = 3
-    batch_num = (3, 3, 3)
+    batch_num = (300, 300, 400)
     aug_start(device_id = device_id, 
             grid = grid, 
             grid_id = grid_id, 

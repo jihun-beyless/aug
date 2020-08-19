@@ -116,7 +116,7 @@ def cal_mask(obj_map, ori_area, area_ratio_th = 0.06):
     #print('크기 비교:{},{}'.format(area, re_area))
     a_ratio = re_area/ori_area
     if a_ratio<area_ratio_th:
-        print('mask 크기가 너무 작음')
+        #print('mask 크기가 너무 작음')
         return [[-1,-1]], 0
 
     mask = np.reshape(m,(m.shape[0],2))
@@ -157,7 +157,9 @@ def cal_bbox(obj_map, mask, center, threshold):
     if obj_center[1]==center[1]:
         obj_center[1]=obj_center[1]+1
     angle = -math.atan2((obj_center[0]-center[0]), (obj_center[1]-center[1]))
-    
+    #print(obj_center)
+    #print(angle)
+
     # 3. 물품의 영역을 가져오기 
     # 즉 mask상에서 점들을 회전을 시켜서 그 mask 점들중 최대값을 계산
     
@@ -224,15 +226,16 @@ def cal_bbox(obj_map, mask, center, threshold):
     mask_cut2 = int(ro_img_h/2+rotate_size[3]-obj_center[1] - cut_length2)
         
     #(2) 이제 한줄씩 읽어가면서 물품의 영역이 얼만큼 차지하는지 비율에 따라서 잘라낼지 아닐지를 결정
-    for y in range(mask_cut1-1, mask_cut2, 1):
-        aver_value = np.sum(obj_region[y])/rotate_size[4]
-        if aver_value >128:
-            if (y-mask_cut1+1)<0:
-                print("합성쪽 에러")
-                print('mask_cu1:{0}, mask_cut2:{1}, y:{2}'.format(mask_cut1, mask_cut2, y))
-            rotate_region[mask_cut1-1 : y ] = np.zeros((y-mask_cut1+1, ro_img_w, 3), dtype=np.uint8)
-            break
-         
+    if cut_length2<rotate_size[5] :
+        for y in range(mask_cut1-1, mask_cut2, 1):
+            aver_value = np.sum(obj_region[y])/rotate_size[4]
+            if aver_value >128:
+                if (y-mask_cut1+1)<0:
+                    print("합성쪽 에러")
+                    print('mask_cu1:{0}, mask_cut2:{1}, y:{2}'.format(mask_cut1, mask_cut2, y))
+                rotate_region[mask_cut1-1 : y ] = np.zeros((y-mask_cut1+1, ro_img_w, 3), dtype=np.uint8)
+                break
+            
     # 6. 이제 원래로 다시 역 변환 
 
     ro_m3 = cv2.getRotationMatrix2D((ro_img_w/2,ro_img_h/2), -degree, 1)
@@ -511,7 +514,7 @@ def re_cal_bbox(target, around_grid, around_box, region_num, around_object_value
             x1_end = x1_start+int(target['bbox'][2]*re_cal_search_region*0.5)
             x2_start = target['bbox'][2]+target['bbox'][0]-map_size[0]
             x2_end = x2_start-int(target['bbox'][2]*re_cal_search_region*0.5)
-            x_c = target['bbox'][0]+int(target['bbox'][2]*re_cal_search_region)-map_size[0]
+            x_c = target['bbox'][0]+int(target['bbox'][2]*0.5)-map_size[0]
 
             optimal_pos=[x1_start, x2_start, y_start]
             optimal_x_pos=[x1_start, x2_start]
@@ -537,6 +540,7 @@ def re_cal_bbox(target, around_grid, around_box, region_num, around_object_value
                         optimal_x_pos[1] = x2
                 #print(optimal_x_pos)
                 value = sum(optimal_x)
+                #print(value)
                 if value>optimal_value:
                     optimal_value = value
                     optimal_pos[0] = optimal_x_pos[0]
@@ -568,7 +572,7 @@ def re_cal_bbox(target, around_grid, around_box, region_num, around_object_value
             y1_end = y1_start+int(target['bbox'][3]*re_cal_search_region*0.5)
             y2_start = target['bbox'][3]+target['bbox'][1]-map_size[1]
             y2_end = y2_start-int(target['bbox'][3]*re_cal_search_region*0.5)
-            y_c = target['bbox'][1]+int(target['bbox'][3]*re_cal_search_region)-map_size[1]
+            y_c = target['bbox'][1]+int(target['bbox'][3]*0.5)-map_size[1]
             
             optimal_pos=[x_start, y1_start, y2_start]
             optimal_y_pos=[y1_start, y2_start]
