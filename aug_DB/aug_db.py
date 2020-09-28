@@ -90,8 +90,26 @@ def read_mask(db, grid_id, cate_id):
         tuple ((loc_x, loc_y, iteration, mask_id, mask_x, mask_y), (...))
     """
     print('category_id : '+str(cate_id))
-    DB_masks = db.get_aug_mask(str(grid_id), str(cate_id), "-1")
+    DB_masks = db.get_aug_mask(str(grid_id), str(cate_id))
     return DB_masks
+
+
+@check_read_DB
+def read_bbox(db, grid_id, cate_id):
+    """
+    DB에서 grid_id와 cate_id가 동일한 물품의 bbox정보들을 읽어옴
+
+    Args:
+        db (DB): 접속된 db
+        background_id (int): 
+
+    Return:
+        tuple ((loc_x, loc_y, iteration, bbox_id, bbox_x, bbox_y, bbox_width, bbox_height), (...))
+    """
+    print('category_id : '+str(cate_id))
+    DB_bboxs = db.get_aug_bbox(str(grid_id), str(cate_id))
+    return DB_bboxs
+
 
 @check_save_DB
 def save_aug_image(db, data):
@@ -187,6 +205,7 @@ class aug_db:
         bg = cv2.imdecode(bg_np, cv2.IMREAD_COLOR)
 
         masks = []
+        bboxs = []
         for cate_id, obj_iter in zip(obj_category, iteration):
             
             # read images
@@ -207,10 +226,19 @@ class aug_db:
                 read_flag = False
                 break
 
-            masks_list = aug_db_util.arrange_masks(DB_masks, grid,  obj_iter)
+            masks_list = aug_db_util.arrange_masks(DB_masks, grid, obj_iter)
             masks.append(masks_list)
 
-        return masks, bg, read_flag
+            DB_bboxs, db_bbox_flag= read_bbox(self.db, grid_id, cate_id)
+            if db_bbox_flag==False:
+                read_flag = False
+                break
+            
+            bbox_list = aug_db_util.arrange_bboxs(DB_bboxs, grid, obj_iter)
+            bboxs.append(bbox_list)
+
+        obj_datas = [masks, bboxs]
+        return obj_datas, bg, read_flag
 
     def set_aug_result(self, aug_segs, grid, grid_id, device_id, images_path):
         """

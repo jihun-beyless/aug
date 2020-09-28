@@ -10,7 +10,7 @@ class augment:
     """
     물품 합성용 클래스
     """
-    def __init__(self, grid, object_category, batch_method, background_image, mask, iteration_list, shadow_flag=1, center=None, category_grid=None):
+    def __init__(self, grid, object_category, batch_method, background_image, DB_datas, iteration_list, cal_bbox_option=False, shadow_flag=1, center=None, category_grid=None):
         """
         물품 합성에 필요한 정보를 저장하는 부분
 
@@ -36,7 +36,8 @@ class augment:
         self.category_num = len(object_category)
 
         # 입력받는 mask 정보
-        self.mask_data = mask
+        self.mask_data = DB_datas[0]
+        self.bbox_data = DB_datas[1]
 
         # iteration 정보도 입력, 각 물품별로 최대 몇장씩 찍었는지 
         self.iteration = iteration_list
@@ -59,6 +60,9 @@ class augment:
         # 2. 열별로 배치, 대신 물품 종류는 랜덤
         # 3. 랜덤 배치
         self.batch_method = batch_method
+
+        #합성에서 bbox를 따로 계산하는게 아닌 bbox를 원래 db의 값 그대로 가져오는
+        self.cal_bbox_option = cal_bbox_option
 
         # 배경 이미지
         self.ori_background_image = background_image
@@ -386,7 +390,11 @@ class augment:
             #print('물체의 위치정보: ({},{})'.format(img_info['pos_x'], img_info['pos_y']))
 
             # bbox계산
-            obj_cal_bbox = aug_cal.cal_bbox(obj_map, obj_cal_mask, img_center, threshold)
+            if self.cal_bbox_option:
+                obj_cal_bbox = aug_cal.cal_bbox(obj_map, obj_cal_mask, img_center, threshold)
+                
+            else :
+                obj_cal_bbox = self.bbox_data[self.object_category.index(img_info['category'])][img_info['pos_x']][img_info['pos_y']][img_info['iteration']][0]
             
             cal_seg.append({'mask': obj_cal_mask, 'bbox' : obj_cal_bbox})
 
@@ -436,7 +444,7 @@ class augment:
         return img_save_path, aug_DB
         
 
-def aug_process(grid, object_category, batch_method, background, DB_masks,iteration_list, aug_count):
+def aug_process(grid, object_category, batch_method, background, DB_datas, iteration_list, aug_count, cal_bbox_option):
     """
     실제 합성이 이루어지는 함수로 아래와 같이 구성
 
@@ -451,7 +459,9 @@ def aug_process(grid, object_category, batch_method, background, DB_masks,iterat
         object_category (list): 물품의 category 값 ex) [12, 34, 23]
         batch_method (int): 배치방식, 3가지로 나뉘며 1,2,3 으로 구분
         background (numpy): 배경 이미지
-        DB_masks (list): DB에서 읽어온 mask정보 6차원 배열 [category 순서][position x][position y][iteration][[x1,y1], [x2, y2], ... ]
+        DB_datas (list): DB에서 읽어온 mask정보 및 bbox 정보 [mask bbox]
+                        mask : 6차원 배열 [category 순서][position x][position y][iteration][[x1, y1], [x2, y2], ... ]
+                        bbox : 6차원 배열 [category 순서][position x][position y][iteration][[x1, y1, width1, height1], [x2, y2, width2, height2], ... ]
         iteration_list (list): iteration 정보가 저장된 배열
         aug_count (int): 현재 합성되는 이미지가 몇번째 이미지인지 확인용도
 
@@ -461,7 +471,7 @@ def aug_process(grid, object_category, batch_method, background, DB_masks,iterat
     """
 
     #print("합성할 물품 배치를 계산하는 부분 시작")
-    aug1 = augment(grid, object_category, batch_method, background, DB_masks, iteration_list)
+    aug1 = augment(grid, object_category, batch_method, background, DB_datas, iteration_list, cal_bbox_option)
     aug1.compose_batch() 
     #aug1.load_DB_API()
     #print("데이터 읽기 시작")

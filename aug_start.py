@@ -8,7 +8,7 @@ from augment import augment
 import time
 
 
-def aug_start(device_id, grid, grid_id, object_category, background_id, iteration, batch_num):
+def aug_start(device_id, grid, grid_id, object_category, background_id, iteration, batch_num, cal_bbox_option):
     """
     합성과정 전체 돌아가는 메인 함수
 
@@ -38,7 +38,7 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
 
     # 먼저 DB에서 file을 읽어오기
     print('read DB data for augmentation')
-    DB_mask, background, flag = DB_data.get_DB_data(object_category, grid, grid_id, iteration_list, background_id)
+    DB_obj_info, background, flag = DB_data.get_DB_data(object_category, grid, grid_id, iteration_list, background_id)
     #DB_mask = get_data(object_category, grid, grid_id, iteration_list, image_size)
     if not flag:
         print('DB에서 합성에 필요한 데이터 읽기 실패')
@@ -68,7 +68,7 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
             img_path_list = []
             #save_count+=1
         #실제 이미지 합성이 이루어 지는 함수
-        img_path, result = augment.aug_process(grid, object_category, batch_method, background, DB_mask, iteration_list, aug_count)
+        img_path, result = augment.aug_process(grid, object_category, batch_method, background, DB_obj_info, iteration_list, aug_count, cal_bbox_option)
         print('{}번 이미지 합성'.format(aug_count))
         result_data.append(result)
         img_path_list.append(img_path)
@@ -93,16 +93,20 @@ if __name__ == "__main__":
 
     grid_id = 3
 
-    obj_cate = [1, 2, 3]
+    obj_cate = [1, 10, 17, 18, 19]
 
     bg_id = 463
 
     iteration = 3
     batch_num = (300, 300, 400)
+
+    bbox_option = False
+
     aug_start(device_id = device_id, 
             grid = grid, 
             grid_id = grid_id, 
             object_category = obj_cate, 
             background_id = bg_id, 
             iteration = iteration,
-            batch_num = batch_num)
+            batch_num = batch_num,
+            cal_bbox_option = bbox_option)

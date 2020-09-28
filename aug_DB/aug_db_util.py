@@ -49,6 +49,28 @@ def arrange_masks(DB_masks, grid, obj_iter):
                 masks_list[x-1][y-1][iter_num-1] = [obj_mask[1:3] for obj_mask in sort_mask]
     return masks_list
 
+def arrange_bboxs(DB_bboxs, grid, obj_iter):
+    """
+    bbox 정보를 합성코드내에서 사용하기 쉽도록 재배열
+
+    Args:
+        DB_bboxs (tuple) : mask 데이터들
+        grid (tuple): grid 가로,세로 정보 
+        obj_iter (list): 특정 category id에 해당되는 iteration 정보
+
+    return:
+        list : 다차원배열로 정리 
+    """
+    #grid : 10
+    #category :15, 16, 17
+    #np_masks = np.array(masks)
+    bbox_list = list([[[None for iter in range(obj_iter)] for row in range(grid[1])] for col in range(grid[0])])
+    for x in range(1,grid[0]+1):
+         for y in range(1,grid[1]+1):
+             for iter_num in range(1,obj_iter+1):
+                bbox_list[x-1][y-1][iter_num-1] = [list(obj_bbox[4:8]) for obj_bbox in DB_bboxs if (obj_bbox[0:3]==(x,y,iter_num))]
+    return bbox_list
+
 
 def update_value(src, th, rect, max_value):
     src16 = src.astype(np.int16)
