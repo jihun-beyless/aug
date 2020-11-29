@@ -64,6 +64,11 @@ class augment:
         #합성에서 bbox를 따로 계산하는게 아닌 bbox를 원래 db의 값 그대로 가져오는
         self.cal_bbox_option = cal_bbox_option
 
+        #합성이후 bbox 재 계산 하는 여부 확인
+        self.revise_bbox_option = cal_bbox_option
+
+        self.delete_obj_option = False
+
         # 배경 이미지
         self.ori_background_image = background_image
 
@@ -71,11 +76,11 @@ class augment:
         self.shadow_flag = shadow_flag
         # threshold 기준
         # param1,2 로 나뉘어 지고 물품의 가로길이를 기준으로 세로로 얼마만큼 잘라낼지 판단
-        self.threshold_param1=(1.0, 0.3)
-        self.threshold_param2=(0.7, 0.2)
+        self.threshold_param1=(0.5, 0.3)
+        self.threshold_param2=(0.5, 0.2)
 
         #물품이 배치될때 전체에서 얼마만큼 비율로 배치될지 정하는 파라미터
-        self.object_dense = 0.5
+        self.object_dense = 0.3
 
         # rand option같은 경우 0과 1이 차이가 있는데
         #0은 배치할때 확률이 dense가 0.3이면 무조건 30%는 배치가 되어야함. 즉 49칸이면 15칸만 딱 물품이 배치
@@ -99,17 +104,22 @@ class augment:
         self.shadow_value = 30
         
         # 물품끼리 서로 겹치게 될 경우 삭제하며, 원래 물품의 mask 영역 크기와 나중에 가려져서 남은 영역크기 비율로 제거
-        # 0.06일 경우 가려진게 94% 이상 가려지면 검출 불가능이라고 판단해서 지움
-        self.delete_ratio_th = 0.06
+        # 0.06일 경우 가려진게 95% 이상 가려지면 검출 불가능이라고 판단해서 지움
+        self.delete_ratio_th = 0.05
 
         # 물품끼리 겹치는 경우 bbox를 재 계산할때 필요한 파라미터
         # 가리는쪽 가중치를 -, 가려지는 쪽을 +로 해서 bbox 내부의 영역합이 최대인 값으로 계산
         # 가리는쪽 가중치를 -3~-4정도로 설정하면 무난할듯
-        self.around_object_weight = -3
+        #self.around_object_weight = -3
+        self.around_object_weight = [-10, 5, -1]
 
         # 마지막에 bbox 다시 보정용으로 재계산할때 필요
         # 실제 물품의 사이즈 줄여가면서 적합한 bbox를 다시 계산하는데 얼만큼 줄일지 판단하는 값
         self.re_cal_search_region = 0.7
+
+        self.save_bbox_img_flag = False
+        self.cap_option = True
+
         
     def compose_batch(self):
         """
@@ -332,7 +342,7 @@ class augment:
         그 영역에서만 따로 연산으로 붙임
         """
         #입력으로 받은 배경이미지에다가 붙이기 위해서 배경을 가져옴
-        aug_img = self.background_image
+        aug_img = self.background_image.copy()
         for img_info in self.image_data:
             # mask 점의 x,y 최대 최소를 구함
             mask_np = np.array(img_info['mask'])
@@ -375,13 +385,13 @@ class augment:
             threshold = [self.threshold_param1, self.threshold_param2]
             
             
-            if(img_info['pos_x']==3) & (img_info['pos_y']==5) & (img_info['category']==1):
-                check=True 
+            #if(img_info['pos_x']==3) & (img_info['pos_y']==5) & (img_info['category']==1):
+            #    check=True 
 
             obj_map = deleted_map.astype(np.uint8)
             
             # mask 계산
-            obj_cal_mask, area = aug_cal.cal_mask(obj_map,img_info['area'], self.delete_ratio_th)
+            obj_cal_mask, area = aug_cal.cal_mask(obj_map,img_info['area'], self.delete_obj_option, self.delete_ratio_th)
             if obj_cal_mask[0][0]==-1:
                 self.batch_map[img_info['pos_x']][img_info['pos_y']]=0
                 deleted_info.append(img_info)
@@ -391,7 +401,7 @@ class augment:
 
             # bbox계산
             if self.cal_bbox_option:
-                obj_cal_bbox = aug_cal.cal_bbox(obj_map, obj_cal_mask, img_center, threshold)
+                obj_cal_bbox = aug_cal.cal_bbox(obj_map, img_info['mask'], obj_cal_mask, img_center, threshold, self.cap_option)
                 
             else :
                 obj_cal_bbox = self.bbox_data[self.object_category.index(img_info['category'])][img_info['pos_x']][img_info['pos_y']][img_info['iteration']][0]
@@ -402,9 +412,13 @@ class augment:
         for del_info in deleted_info:
             self.image_data.remove(del_info)
         
-        #bbox 다시 계산
-        re_seg = aug_cal.revise_bbox(cal_seg, self.batch_map, self.grid, self.image_data, self.around_object_weight, self.re_cal_search_region)
-        self.re_segmentation = re_seg
+
+        if self.revise_bbox_option:
+            #bbox 다시 계산
+            re_seg = aug_cal.revise_bbox(cal_seg, self.batch_map, self.grid, self.image_data, self.around_object_weight, self.re_cal_search_region)
+            self.re_segmentation = re_seg
+        else :
+            self.re_segmentation = cal_seg
         #for seg2 in re_seg:
         #    cv2.rectangle(aug_seg_img, tuple(seg2['bbox']), (0, 255, 255), 1)
         #cv2.imshow('aug_img',aug_seg_img)
@@ -433,14 +447,21 @@ class augment:
 
         aug_DB = self.re_segmentation
 
-        #이부분은 혹시 bbox까지 포함된 결과 이미지를 저장하기 위한 용도
-        img_save_folder2 = '/tmp/augment_DB/aug_result'
-        img_save_path2 = img_save_folder2+'/'+'%06d.jpg'%(aug_count)
-        re_img = self.aug_img.copy()
-        for seg in self.re_segmentation:
-            cv2.rectangle(re_img, tuple(seg['bbox']),(0, 255, 255), 1)
-        cv2.imwrite(img_save_path2, re_img)
-        
+        if self.save_bbox_img_flag:
+            #이부분은 혹시 bbox까지 포함된 결과 이미지를 저장하기 위한 용도
+            img_save_folder2 = '/tmp/augment_DB/aug_result'
+            img_save_path2 = img_save_folder2+'/'+'%06d.jpg'%(aug_count)
+            re_img = self.aug_img.copy()
+            for seg in self.re_segmentation:
+                cv2.rectangle(re_img, tuple(seg['bbox']),(0, 255, 255), 1)
+            cv2.imwrite(img_save_path2, re_img)
+
+            img_save_folder3 = '/tmp/augment_DB/aug_shadow'
+            img_save_path3 = img_save_folder3+'/'+'%06d.jpg'%(aug_count)
+            sh_img = self.background_image.copy()
+            cv2.imwrite(img_save_path3, sh_img)
+
+            
         return img_save_path, aug_DB
         
 
@@ -475,10 +496,11 @@ def aug_process(grid, object_category, batch_method, background, DB_datas, itera
     aug1.compose_batch() 
     #aug1.load_DB_API()
     #print("데이터 읽기 시작")
-    #batch = [[2, 1, 3, 2, 1, 3], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [3, 2, 1, 3, 2, 2], [1, 2, 3, 2, 3, 2], [0, 0, 0, 0, 0, 0], [1, 2, 2, 3, 2, 1]]
+    #batch = [[0, 0, 18, 17, 0, 0], [0, 0, 0, 0, 0, 0], [18, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 10], [0, 10, 1, 0, 10, 10], [1, 0, 1, 17, 0, 0], [0, 0, 0, 0, 0, 19]]
     #aug1.load_DB(batch_map=batch)
-    
     aug1.load_DB()
+    
+    #aug1.load_DB()
     #print("데이터 읽기 완료")
     aug1.make_background()
     #print('배경에 그림자 적용 완료')

@@ -60,7 +60,7 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
     for batch_method in batch_method_list:
         if len(result_data)==cut_value:
             print('save dataset')
-            aug_save_flag = DB_data.set_aug_result(result_data, grid, grid_id, device_id, img_path_list)
+            #aug_save_flag = DB_data.set_aug_result(result_data, grid, grid_id, device_id, img_path_list)
             if not aug_save_flag:
                 print('합성이미지 {}~{}번까지 데이터 저장 실패'.format(aug_count-cut_value, aug_count))
                 return False
@@ -74,7 +74,7 @@ def aug_start(device_id, grid, grid_id, object_category, background_id, iteratio
         img_path_list.append(img_path)
         aug_count +=1
     print('save dataset')
-    aug_save_flag = DB_data.set_aug_result(result_data, grid, grid_id, device_id, img_path_list)
+    #aug_save_flag = DB_data.set_aug_result(result_data, grid, grid_id, device_id, img_path_list)
     if not aug_save_flag:
         print('합성이미지 {}~{}번까지 데이터 저장 실패'.format(aug_count-cut_value, aug_count-1))
         return False
@@ -98,9 +98,9 @@ if __name__ == "__main__":
     bg_id = 463
 
     iteration = 3
-    batch_num = (300, 300, 400)
+    batch_num = (0, 0, 20)
 
-    bbox_option = False
+    bbox_option = True
 
     aug_start(device_id = device_id, 
             grid = grid, 

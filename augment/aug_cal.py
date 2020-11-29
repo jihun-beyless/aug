@@ -83,7 +83,7 @@ def cal_obj_center(mask):
     obj_cy = int(M['m01'] / M['m00'])
     return [obj_cx, obj_cy]
 
-def cal_mask(obj_map, ori_area, area_ratio_th = 0.06):
+def cal_mask(obj_map, ori_area, delete_flag = True ,area_ratio_th = 0.06):
     """
     mask를 가려진부분 제외하고 실제로 진짜 보이는 부분으로 다시 계산
 
@@ -115,14 +115,15 @@ def cal_mask(obj_map, ori_area, area_ratio_th = 0.06):
     re_area = cv2.contourArea(m)
     #print('크기 비교:{},{}'.format(area, re_area))
     a_ratio = re_area/ori_area
-    if a_ratio<area_ratio_th:
-        #print('mask 크기가 너무 작음')
-        return [[-1,-1]], 0
+    if delete_flag:
+        if a_ratio<area_ratio_th:
+            #print('mask 크기가 너무 작음')
+            return [[-1,-1]], 0
 
     mask = np.reshape(m,(m.shape[0],2))
     return mask, re_area
 
-def cal_bbox(obj_map, mask, center, threshold):
+def cal_bbox(obj_map, ori_mask, mask, center, threshold, cap_option):
     '''
     bbox를 다시 계산하는 함수 자세한 과정은 아래에
 
@@ -213,6 +214,37 @@ def cal_bbox(obj_map, mask, center, threshold):
     # 5. 실제 bbox만 남기기 위해서 잘라내기
     #물품이 수직방향이기 때문에 threshold 기준을 y축을 기준으로 잡으면 됨
     #cut_late = threshold[0][0] + abs(abs(abs(degree)-90) - 45) / 45 * threshold[0][1]
+
+    if cap_option:
+        #cap_region = np.zeros((rotated_size[5],rotated_size[4],3),dtype=np.uint8)
+        #세로축 길이를 일단 10% 잡고 잘라내돼, 이미 충분히 가려진 물품은 그보다 더 짧을 수 있기 때문에 세로축 길이 계산이 필요함
+        cap_height = min(int(rotate_size[5]*0.2), rotate_size[5])
+        cap_region = rotate_region[int(ro_img_h/2+rotate_size[3]-obj_center[1])-cap_height:int(ro_img_h/2+rotate_size[3]-obj_center[1]), \
+            int(ro_img_w/2+rotate_size[0]-obj_center[0]):int(ro_img_w/2+rotate_size[2]-obj_center[0])]
+        binary_cap_map = cv2.cvtColor(cap_region, cv2.COLOR_BGR2GRAY)
+        cap_contours, caps_hierarchy = cv2.findContours(binary_cap_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS )
+        if len(cap_contours)>1:
+            cap_area = [cv2.contourArea(a) for a in cap_contours]
+            #max_cap_area = max(cap_area)
+            cap_m = cap_contours[cap_area.index(max(cap_area))]
+        else:
+            #max_cap_area = cv2.contourArea(cap_contours[0])
+            cap_m = cap_contours[0]
+        
+        cap_region_bbox = cv2.boundingRect(cap_m)
+        cap_bbox = [cap_region_bbox[0]+int(ro_img_w/2+rotate_size[0]-obj_center[0]), int(ro_img_h/2+rotate_size[3]-obj_center[1])-cap_region_bbox[3], cap_region_bbox[2], cap_region_bbox[3]]
+        cap_copy = rotate_region.copy()
+        #cap_copy2 = rotate_region.copy()
+        cv2.rectangle(cap_copy, cap_bbox, (200,0,200))
+        rotate_region[:,0:cap_bbox[0]] = np.zeros((ro_img_h, cap_bbox[0], 3), dtype=np.uint8)
+        rotate_region[:,(cap_bbox[0]+cap_bbox[2]):ro_img_w] = np.zeros((ro_img_h, ro_img_w-(cap_bbox[0]+cap_bbox[2]), 3), dtype=np.uint8)
+        #cap_copy2[:,0:cap_bbox[0]] = np.zeros((ro_img_h, cap_bbox[0], 3), dtype=np.uint8)
+        #cap_copy2[:,(cap_bbox[0]+cap_bbox[2]):ro_img_w] = np.zeros((ro_img_h, ro_img_w-(cap_bbox[0]+cap_bbox[2]), 3), dtype=np.uint8)
+        #cv2.imshow('cap1', cap_copy)
+        #cv2.imshow('cap2', cap_copy2)
+        #cv2.waitKey(0)
+
+
     
     #(1) 일단 1차 기준의 경우 1차 기준 밑으로는 다 잘라냄(예외없이 싹뚝) 
     cut_length1 = int((rotate_size[4] * (threshold[0][0] + abs(abs(abs(degree)-90) - 45) / 45 * threshold[0][1])))
@@ -249,6 +281,12 @@ def cal_bbox(obj_map, mask, center, threshold):
     
     re_bbox = [int(fit_bbox[0]-ro_img_w/2+obj_center[0]), int(fit_bbox[1]-ro_img_h/2+obj_center[1]),fit_bbox[2], fit_bbox[3]]
     
+    #cv2.imshow("cap_region", cap_copy)
+    #cv2.imshow("rotated region", rotate_region)
+    #cv2.rectangle(re_obj_region,fit_bbox, (0,200,200))
+    #cv2.imshow("final bbox region", re_obj_region)
+    #cv2.waitKey(0)
+
     return re_bbox
 
 
@@ -367,14 +405,14 @@ def related_mask_map(map_size, tar_mask, a_mask, other_mask_value=-3):
     return:
         numpy : 위에 설명과 같은 형태의 mask 맵 [x][y]
     """
-    mask_map = np.zeros((map_size[3]-map_size[1], map_size[2]-map_size[0],3), dtype=np.int16)
+    mask_map = np.ones((map_size[3]-map_size[1], map_size[2]-map_size[0],3), dtype=np.int16)*other_mask_value[2]
     #check_map = np.zeros((map_size[3]-map_size[1], map_size[2]-map_size[0],3), dtype=np.uint8)
     t_m = tar_mask-[map_size[0],map_size[1]]
-    cv2.drawContours(mask_map, [t_m], -1,(1,1,1), -1)
+    cv2.drawContours(mask_map, [t_m], -1,(other_mask_value[1],other_mask_value[1],other_mask_value[1]), -1)
     #cv2.drawContours(check_map, [t_m], -1,(100,100,100), -1)
     for a in a_mask:
         a_m = a-[map_size[0],map_size[1]]
-        cv2.drawContours(mask_map, [a_m], -1,(other_mask_value,other_mask_value,other_mask_value), -1)
+        cv2.drawContours(mask_map, [a_m], -1,(other_mask_value[0],other_mask_value[0],other_mask_value[0]), -1)
         #cv2.drawContours(check_map, [a_m], -1,(200,200,200), -1)
     
     #mask_map.astype(np.int32)
