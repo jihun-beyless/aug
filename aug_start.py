@@ -100,7 +100,7 @@ if __name__ == "__main__":
     iteration = 3
     batch_num = (0, 0, 20)
 
-    bbox_option = False
+    bbox_option = True
 
     aug_start(device_id = device_id, 
             grid = grid, 
