@@ -406,7 +406,7 @@ class augment:
             else :
                 obj_cal_bbox = self.bbox_data[self.object_category.index(img_info['category'])][img_info['pos_x']][img_info['pos_y']][img_info['iteration']][0]
             
-            cal_seg.append({'mask': obj_cal_mask, 'bbox' : obj_cal_bbox})
+            cal_seg.append({'mask': obj_cal_mask, 'bbox' : obj_cal_bbox, 'category_id':img_info['category'], 'area':area, 'x':img_info['pos_x'], 'y':img_info['pos_y'], 'iteration':img_info['iteration']})
 
         #없어진 물품 리스트에서 지우기
         for del_info in deleted_info:

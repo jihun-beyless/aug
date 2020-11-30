@@ -4,4 +4,4 @@
 /__pycache__
 /img
 /aug_protobuf_pb2.py
-/aug_protobuf_pb2_grpc.py
+/aug_protobuf_pb2_grpc.pygit 
